@@ -247,6 +247,46 @@ class DefaultGrailsTemplateGenerator implements GrailsTemplateGenerator, Resourc
         t.make(binding).writeTo(out)
     }
 
+    void generateService(GrailsDomainClass domainClass, String destdir) {
+        Assert.hasText destdir, "Argument [destdir] not specified"
+
+        if (domainClass) {
+            def fullName = domainClass.fullName
+            def pkg = ""
+            def pos = fullName.lastIndexOf('.')
+            if (pos != -1) {
+                // Package name with trailing '.'
+                pkg = fullName[0..pos]
+            }
+
+            def destFile = new File("${destdir}/grails-app/services/${pkg.replace('.' as char, '/' as char)}${domainClass.shortName}Service.groovy")
+            if (canWrite(destFile)) {
+                destFile.parentFile.mkdirs()
+
+                destFile.withWriter { w ->
+                    generateService(domainClass, w)
+                }
+
+                LOG.info("Controller generated at ${destFile}")
+            }
+        }
+    }
+
+    void generateService(GrailsDomainClass domainClass, Writer out) {
+        def templateText = getTemplateText("Service.groovy")
+
+        boolean hasHibernate =pluginManager?.hasGrailsPlugin('hibernate')
+        def binding = [pluginManager: pluginManager,
+                packageName: domainClass.packageName,
+                domainClass: domainClass,
+                className: domainClass.shortName,
+                propertyName: getPropertyName(domainClass),
+                comparator: hasHibernate ? DomainClassPropertyComparator : SimpleDomainClassPropertyComparator]
+
+        def t = engine.createTemplate(templateText)
+        t.make(binding).writeTo(out)
+    }
+
     private String getPropertyName(GrailsDomainClass domainClass) { "${domainClass.propertyName}${domainSuffix}" }
 
     private canWrite(File testFile) {
